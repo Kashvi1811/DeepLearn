@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import html
-import base64
-import io
 import math
 from dataclasses import dataclass
 from typing import Any, Iterable
@@ -540,37 +538,27 @@ def safe_st_image(img_obj, **kwargs):
         return False
 
 
-def render_image_html(img_obj, *, caption: str | None = None, width: int | None = None) -> bool:
-    """Render an image using HTML so Streamlit image API issues do not affect CV display."""
-    if not HAS_PIL:
-        st.error("Image rendering is unavailable because Pillow is missing.")
-        return False
-
+def display_cv_image(img_obj, *, caption: str | None = None, width: int | None = None) -> bool:
+    """Render a computer-vision image with Streamlit using a normalized array."""
     try:
         if isinstance(img_obj, np.ndarray):
             if img_obj.ndim == 2:
-                pil_img = Image.fromarray(img_obj.astype(np.uint8), mode="L")
+                display_obj = img_obj.astype(np.uint8)
             else:
-                pil_img = Image.fromarray(img_obj.astype(np.uint8))
+                display_obj = img_obj.astype(np.uint8)
         else:
-            pil_img = img_obj.copy() if hasattr(img_obj, "copy") else img_obj
+            display_obj = np.asarray(img_obj)
 
-        if not hasattr(pil_img, "save"):
-            raise TypeError(f"Unsupported image type: {type(img_obj).__name__}")
+        if display_obj.ndim == 3 and display_obj.shape[-1] not in (1, 3, 4):
+            raise TypeError(f"Unsupported image shape: {display_obj.shape}")
 
-        buffer = io.BytesIO()
-        pil_img.save(buffer, format="PNG")
-        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
-        style_bits = ["display:block", "max-width:100%", "height:auto", "border-radius:12px"]
+        image_kwargs: dict[str, Any] = {"caption": caption, "clamp": False}
         if width is not None:
-            style_bits.append(f"width:{width}px")
-        html_block = f"<div style='margin-bottom:0.35rem;'><img src='data:image/png;base64,{encoded}' style='{' ; '.join(style_bits)};'/></div>"
-        if caption:
-            html_block += f"<div style='color:var(--muted);font-size:0.9rem;margin-top:0.25rem;'>{html.escape(caption)}</div>"
-        st.markdown(html_block, unsafe_allow_html=True)
+            image_kwargs["width"] = width
+        st.image(display_obj, **image_kwargs)
         return True
     except Exception:
-        logging.exception("render_image_html failed")
+        logging.exception("display_cv_image failed")
         st.error("Image display failed — continuing without image.")
         return False
 
@@ -1621,7 +1609,7 @@ elif choice == "Computer Vision":
                     # keep pixel shape sharp for handwritten digits
                     thumb = thumb.resize((88, 88), Image.Resampling.NEAREST)
                     thumb = ImageOps.autocontrast(thumb, cutoff=1)
-                    render_image_html(thumb, width=88)
+                    display_cv_image(thumb, width=88)
                     if st.button(f"Load {idx}", key=f"sample_btn_{idx}"):
                         st.session_state["cv_sample_idx"] = idx
 
@@ -1693,16 +1681,16 @@ elif choice == "Computer Vision":
             show_metric("Confidence", f"{probs[pred] * 100:.1f}%")
         img_col, viz_col = st.columns([1, 1.1], gap="large")
         with img_col:
-            render_image_html(img, caption="Uploaded image")
+            display_cv_image(img, caption="Uploaded image")
             gray = ImageOps.grayscale(img)
             edges = Image.fromarray(np.uint8(np.clip(ndimage.sobel(np.asarray(gray, dtype=float)), 0, 255)))
             a, b, c = st.columns(3)
             with a:
-                render_image_html(gray, caption="Grayscale")
+                display_cv_image(gray, caption="Grayscale")
             with b:
-                render_image_html(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced")
+                display_cv_image(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced")
             with c:
-                render_image_html(edges, caption="Edges")
+                display_cv_image(edges, caption="Edges")
         with viz_col:
             cv_fig = go.Figure(
                 data=[
