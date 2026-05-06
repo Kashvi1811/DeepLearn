@@ -861,7 +861,7 @@ def image_model():
     digits: Any = load_digits()
     wrapped, target_names, X_test, y_test = digits_model()
 
-    if HAS_TF and keras is not None and layers is not None:
+    if HAS_TF and HAS_PIL and keras is not None and layers is not None:
         # Build image array dataset (upsample 8x8 digits to 28x28)
         imgs = []
         for im in digits.images:
