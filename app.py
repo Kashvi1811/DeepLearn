@@ -1716,16 +1716,16 @@ elif choice == "Computer Vision":
             show_metric("Confidence", f"{probs[pred] * 100:.1f}%")
         img_col, viz_col = st.columns([1, 1.1], gap="large")
         with img_col:
-            st.image(img, caption="Uploaded image", width="stretch")
+            st.image(img, caption="Uploaded image", use_container_width=True)
             gray = ImageOps.grayscale(img)
             edges = Image.fromarray(np.uint8(np.clip(ndimage.sobel(np.asarray(gray, dtype=float)), 0, 255)))
             a, b, c = st.columns(3)
             with a:
-                st.image(gray, caption="Grayscale", width="stretch")
+                st.image(gray, caption="Grayscale", use_container_width=True)
             with b:
-                st.image(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced", width="stretch")
+                st.image(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced", use_container_width=True)
             with c:
-                st.image(edges, caption="Edges", width="stretch")
+                st.image(edges, caption="Edges", use_container_width=True)
         with viz_col:
             cv_fig = go.Figure(
                 data=[
@@ -1739,7 +1739,7 @@ elif choice == "Computer Vision":
                 plot_bgcolor="rgba(0,0,0,0)",
                 margin=dict(l=10, r=10, t=50, b=10),
             )
-            st.plotly_chart(cv_fig, width="stretch")
+            st.plotly_chart(cv_fig, use_container_width=True)
             st.markdown("<div class='soft-panel' style='padding:1rem 1.1rem;'>Feature maps are approximated here with classic image transforms so the app remains fully usable offline.</div>", unsafe_allow_html=True)
         # removed end-of-section expander for a cleaner layout
 
