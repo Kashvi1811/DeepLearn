@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
+import logging
 try:
     from PIL import Image, ImageFilter, ImageOps
     HAS_PIL = True
@@ -93,101 +94,16 @@ def safe_st_image(img_obj, **kwargs):
         st.image(img_obj, **kwargs)
         return True
     except Exception as e:
-        # Log the error for debugging and show a friendly message in the UI
+        logging.exception("safe_st_image failed")
         st.error("Image display failed — continuing without image.")
-        # Optionally show a small placeholder box
         try:
-            st.markdown("<div style='width:100%;height:160px;background:rgba(255,255,255,0.02);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)'>Image unavailable</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='width:100%;height:160px;background:rgba(255,255,255,0.02);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)'>Image unavailable</div>",
+                unsafe_allow_html=True,
+            )
         except Exception:
             pass
         return False
-        .block-container {
-            /* increase top padding so content isn't clipped by the Streamlit header/banner */
-            padding-top: 3.6rem;
-            padding-bottom: 2rem;
-            max-width: 1480px;
-        }
-        /* show and style the left sidebar for project navigation */
-        [data-testid="stSidebar"] {
-            display: block !important;
-            background: linear-gradient(135deg, 
-                rgba(10, 15, 35, 0.95),
-                rgba(20, 15, 40, 0.92),
-                rgba(15, 25, 45, 0.94));
-            border-right: 1px solid rgba(142,114,255,0.08);
-            padding: 1rem 0.9rem;
-            box-shadow: 
-                inset -8px 0 24px rgba(51,224,195,0.02),
-                inset 0 0 1px rgba(142,114,255,0.04);
-            width: 290px;
-        }
-        /* sidebar headings and text - make them vibrant */
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4, [data-testid="stSidebar"] h5, [data-testid="stSidebar"] h6 {
-            color: #e8efff !important;
-            font-weight: 800 !important;
-            letter-spacing: -0.02em;
-        }
-        [data-testid="stSidebar"] .css-1oaqwxj {
-            color: #e8efff !important;
-        }
-        /* sidebar label styling - use premium palette */
-        [data-testid="stSidebar"] label {
-            color: #d4e3ff !important;
-            font-weight: 700 !important;
-            letter-spacing: 0.01em;
-        }
-        [data-testid="stSidebar"] .stSlider label, [data-testid="stSidebar"] .stSelectbox label {
-            color: #c9deff !important;
-        }
-        /* keep the collapsed control visible so users can toggle the sidebar */
-        [data-testid="collapsedControl"] {
-            display: block !important;
-        }
-            /* premium primary buttons */
-            button[kind="primary"] {
-                background: linear-gradient(90deg, var(--accent), var(--accent-2)) !important;
-                color: #07111f !important;
-                border-radius: 12px !important;
-                padding: 0.6rem 1rem !important;
-                box-shadow: 0 10px 30px rgba(33, 212, 191, 0.06) !important;
-            }
-            .soft-panel { border-radius: 14px; background: linear-gradient(180deg, rgba(9,16,28,0.6), rgba(20,30,48,0.45)); border:1px solid rgba(127,92,255,0.04); padding:0.9rem; }
-        /* premium sidebar radio styling */
-            .stSidebar [role="radiogroup"] label {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.6rem 0.6rem;
-            border-radius: 12px;
-            transition: background 160ms cubic-bezier(.2,.9,.2,1), transform 160ms ease, box-shadow 160ms ease;
-            color: var(--text);
-        }
-        .stSidebar [role="radiogroup"] label:hover {
-            background: linear-gradient(90deg, rgba(142,114,255,0.08), rgba(51,224,195,0.06));
-            transform: translateX(6px);
-            box-shadow: 0 10px 30px rgba(51,224,195,0.04);
-        }
-        .stSidebar .css-1d391kg { opacity: 0.98; }
-        /* style native radio/checkbox accents to match the premium palette */
-        .stSidebar input[type="radio"], .stSidebar input[type="checkbox"] {
-            accent-color: var(--accent);
-            width: 1.15rem;
-            height: 1.15rem;
-        }
-        /* make the selected radio label more prominent (best-effort across Streamlit markup) */
-        .stSidebar [role="radiogroup"] label:has(input:checked) {
-            background: linear-gradient(90deg, rgba(142,114,255,0.12), rgba(51,224,195,0.08));
-            box-shadow: 0 14px 40px rgba(142,114,255,0.06);
-            transform: translateX(0);
-        }
-        .quick-guide { border-radius: 12px; padding: 0.8rem; background: linear-gradient(180deg, rgba(10,18,34,0.6), rgba(16,26,48,0.6)); border: 1px solid rgba(127,92,255,0.06); }
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Sora', sans-serif;
-            letter-spacing: -0.02em;
-        }
-        p, div, span, label {
-            font-family: 'Manrope', sans-serif;
-        }
         .hero {
             position: relative;
             overflow: hidden;
@@ -1692,7 +1608,13 @@ elif choice == "Computer Vision":
         is_tf_model = getattr(clf, "is_tf", False)
 
         if uploaded is not None:
-            img = Image.open(uploaded).convert("RGB")
+            try:
+                img = Image.open(uploaded).convert("RGB")
+            except Exception as e:
+                logging.exception("Failed to open uploaded image")
+                st.error("Unable to load the uploaded image. Using sample instead.")
+                img = None
+                uploaded = None
             if is_tf_model:
                 inp = image_to_cnn_array(img)
                 probs = clf.predict_proba(inp)[0]
