@@ -82,6 +82,25 @@ def apply_theme() -> None:
             font-family: 'Manrope', sans-serif;
             font-size: 16px;
         }
+
+
+def safe_st_image(img_obj, **kwargs):
+    """Display an image but catch display errors so the app doesn't crash in production.
+
+    Returns True if displayed, False otherwise.
+    """
+    try:
+        st.image(img_obj, **kwargs)
+        return True
+    except Exception as e:
+        # Log the error for debugging and show a friendly message in the UI
+        st.error("Image display failed — continuing without image.")
+        # Optionally show a small placeholder box
+        try:
+            st.markdown("<div style='width:100%;height:160px;background:rgba(255,255,255,0.02);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)'>Image unavailable</div>", unsafe_allow_html=True)
+        except Exception:
+            pass
+        return False
         .block-container {
             /* increase top padding so content isn't clipped by the Streamlit header/banner */
             padding-top: 3.6rem;
@@ -1650,7 +1669,7 @@ elif choice == "Computer Vision":
                     # keep pixel shape sharp for handwritten digits
                     thumb = thumb.resize((88, 88), Image.Resampling.NEAREST)
                     thumb = ImageOps.autocontrast(thumb, cutoff=1)
-                    st.image(thumb, width=88)
+                    safe_st_image(thumb, width=88)
                     if st.button(f"Load {idx}", key=f"sample_btn_{idx}"):
                         st.session_state["cv_sample_idx"] = idx
 
@@ -1716,16 +1735,16 @@ elif choice == "Computer Vision":
             show_metric("Confidence", f"{probs[pred] * 100:.1f}%")
         img_col, viz_col = st.columns([1, 1.1], gap="large")
         with img_col:
-            st.image(img, caption="Uploaded image", use_container_width=True)
+            safe_st_image(img, caption="Uploaded image", use_container_width=True)
             gray = ImageOps.grayscale(img)
             edges = Image.fromarray(np.uint8(np.clip(ndimage.sobel(np.asarray(gray, dtype=float)), 0, 255)))
             a, b, c = st.columns(3)
             with a:
-                st.image(gray, caption="Grayscale", use_container_width=True)
+                safe_st_image(gray, caption="Grayscale", use_container_width=True)
             with b:
-                st.image(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced", use_container_width=True)
+                safe_st_image(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced", use_container_width=True)
             with c:
-                st.image(edges, caption="Edges", use_container_width=True)
+                safe_st_image(edges, caption="Edges", use_container_width=True)
         with viz_col:
             cv_fig = go.Figure(
                 data=[
