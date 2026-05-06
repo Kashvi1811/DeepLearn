@@ -85,25 +85,6 @@ def apply_theme() -> None:
         }
 
 
-def safe_st_image(img_obj, **kwargs):
-    """Display an image but catch display errors so the app doesn't crash in production.
-
-    Returns True if displayed, False otherwise.
-    """
-    try:
-        st.image(img_obj, **kwargs)
-        return True
-    except Exception as e:
-        logging.exception("safe_st_image failed")
-        st.error("Image display failed — continuing without image.")
-        try:
-            st.markdown(
-                "<div style='width:100%;height:160px;background:rgba(255,255,255,0.02);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)'>Image unavailable</div>",
-                unsafe_allow_html=True,
-            )
-        except Exception:
-            pass
-        return False
         .hero {
             position: relative;
             overflow: hidden;
@@ -537,6 +518,24 @@ def safe_st_image(img_obj, **kwargs):
         """,
         unsafe_allow_html=True,
     )
+
+
+def safe_st_image(img_obj, **kwargs):
+    """Display an image safely without crashing the app on rendering errors."""
+    try:
+        st.image(img_obj, **kwargs)
+        return True
+    except Exception:
+        logging.exception("safe_st_image failed")
+        st.error("Image display failed — continuing without image.")
+        try:
+            st.markdown(
+                "<div style='width:100%;height:160px;background:rgba(255,255,255,0.02);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)'>Image unavailable</div>",
+                unsafe_allow_html=True,
+            )
+        except Exception:
+            pass
+        return False
 
 
 apply_theme()
@@ -1610,20 +1609,20 @@ elif choice == "Computer Vision":
         if uploaded is not None:
             try:
                 img = Image.open(uploaded).convert("RGB")
-            except Exception as e:
-                logging.exception("Failed to open uploaded image")
-                st.error("Unable to load the uploaded image. Using sample instead.")
-                img = None
+                if is_tf_model:
+                    inp = image_to_cnn_array(img)
+                    probs = clf.predict_proba(inp)[0]
+                    pred = int(np.argmax(probs))
+                else:
+                    pred_vec = image_to_digit_features(img)
+                    pred = clf.predict([pred_vec])[0]
+                    probs = clf.predict_proba(np.asarray([pred_vec]))[0]
+            except Exception:
+                logging.exception("Failed to open or process uploaded image")
+                st.error("Unable to load the uploaded image. Using a sample image instead.")
                 uploaded = None
-            if is_tf_model:
-                inp = image_to_cnn_array(img)
-                probs = clf.predict_proba(inp)[0]
-                pred = int(np.argmax(probs))
-            else:
-                pred_vec = image_to_digit_features(img)
-                pred = clf.predict([pred_vec])[0]
-                probs = clf.predict_proba(np.asarray([pred_vec]))[0]
-        elif sample_choice is not None:
+
+        if uploaded is None and sample_choice is not None:
             idx = int(sample_choice)
             sample_img = sample_digits.images[idx]
             img = Image.fromarray(np.uint8(255 - (sample_img / sample_img.max()) * 255)).convert("RGB")
@@ -1635,7 +1634,7 @@ elif choice == "Computer Vision":
                 pred_vec = sample_digits.data[idx]
                 pred = clf.predict([pred_vec])[0]
                 probs = clf.predict_proba(np.asarray([pred_vec]))[0]
-        else:
+        elif uploaded is None:
             # default sample
             sample_img = sample_digits.images[12]
             img = Image.fromarray(np.uint8(255 - (sample_img / sample_img.max()) * 255)).convert("RGB")
