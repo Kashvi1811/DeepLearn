@@ -9,7 +9,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-from PIL import Image, ImageFilter, ImageOps
+try:
+    from PIL import Image, ImageFilter, ImageOps
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 from scipy import ndimage
 from sklearn.datasets import make_circles, make_classification, make_moons, load_digits
 from sklearn.exceptions import ConvergenceWarning
@@ -1610,129 +1614,133 @@ elif choice == "Computer Vision":
         "Computer Vision",
         "Upload an image, inspect the predicted class, and compare lightweight transforms that mimic the way a vision pipeline exposes structure.",
     )
-    left, right = st.columns([1, 1.2], gap="large")
-    with left:
-        st.markdown("<div class='theory'><strong>Idea:</strong> a vision model turns pixels into feature maps and class probabilities.</div>", unsafe_allow_html=True)
-        uploaded = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg", "webp"])
-        # runtime samples generated from sklearn digits so users don't need external files
-        sample_digits: Any = load_digits()
-        # choose representative samples by digit label to ensure thumbnails match expected digits
-        preferred_digits = [2, 6, 1, 5, 3]
-        sample_indices = []
-        for d in preferred_digits:
-            idxs = np.where(sample_digits.target == d)[0]
-            if idxs.size:
-                sample_indices.append(int(idxs[0]))
-        # fallback: fill with the first unique indices until we have 5
-        if len(sample_indices) < 5:
-            for i in range(len(sample_digits.images)):
-                if i not in sample_indices:
-                    sample_indices.append(i)
-                if len(sample_indices) >= 5:
-                    break
-        st.markdown("<div style='margin-top:0.6rem;color:var(--muted)'>Or pick a sample:</div>", unsafe_allow_html=True)
-        thumbs = st.columns(len(sample_indices))
-        for col, idx in zip(thumbs, sample_indices):
-            with col:
-                sample_img = sample_digits.images[idx]
-                # normalize to 0-255, invert so digit is dark, and improve contrast
-                arr255 = (sample_img / (sample_img.max() if sample_img.max() > 0 else 1.0) * 255.0).astype(np.uint8)
-                thumb = Image.fromarray(255 - arr255).convert("RGB")
-                # keep pixel shape sharp for handwritten digits
-                thumb = thumb.resize((88, 88), Image.Resampling.NEAREST)
-                thumb = ImageOps.autocontrast(thumb, cutoff=1)
-                st.image(thumb, width=88)
-                if st.button(f"Load {idx}", key=f"sample_btn_{idx}"):
-                    st.session_state["cv_sample_idx"] = idx
-
-        controls = st.columns([1, 1, 1])
-        with controls[0]:
-            if st.button("Shuffle sample"):
-                st.session_state["cv_sample_idx"] = int(np.random.default_rng().choice(sample_indices))
-        with controls[1]:
-            if st.button("Clear sample"):
-                st.session_state["cv_sample_idx"] = None
-        with controls[2]:
-            current = st.session_state.get("cv_sample_idx", None)
-            label = f"Loaded: {current}" if current is not None else "Loaded: None"
-            st.markdown(f"<div style='margin-top:0.45rem;color:var(--muted)'>{label}</div>", unsafe_allow_html=True)
-
-        sample_choice = st.session_state.get("cv_sample_idx", None)
-        reset = st.button("Reset vision demo")
-        st.caption("Tip: this offline demo classifier works best with simple handwritten digits or high-contrast icons.")
-    clf, target_names, X_test, y_test = image_model()
-    is_tf_model = getattr(clf, "is_tf", False)
-
-    if uploaded is not None:
-        img = Image.open(uploaded).convert("RGB")
-        if is_tf_model:
-            inp = image_to_cnn_array(img)
-            probs = clf.predict_proba(inp)[0]
-            pred = int(np.argmax(probs))
-        else:
-            pred_vec = image_to_digit_features(img)
-            pred = clf.predict([pred_vec])[0]
-            probs = clf.predict_proba(np.asarray([pred_vec]))[0]
-    elif sample_choice is not None:
-        idx = int(sample_choice)
-        sample_img = sample_digits.images[idx]
-        img = Image.fromarray(np.uint8(255 - (sample_img / sample_img.max()) * 255)).convert("RGB")
-        if is_tf_model:
-            inp = image_to_cnn_array(img)
-            probs = clf.predict_proba(inp)[0]
-            pred = int(np.argmax(probs))
-        else:
-            pred_vec = sample_digits.data[idx]
-            pred = clf.predict([pred_vec])[0]
-            probs = clf.predict_proba(np.asarray([pred_vec]))[0]
+    if not HAS_PIL:
+        st.error("⚠️ Computer Vision module requires Pillow (PIL), which is not available in this deployment environment.")
+        st.info("This module works perfectly locally. To run locally: `pip install Pillow` then `streamlit run app.py`")
     else:
-        # default sample
-        sample_img = sample_digits.images[12]
-        img = Image.fromarray(np.uint8(255 - (sample_img / sample_img.max()) * 255)).convert("RGB")
-        if is_tf_model:
-            inp = image_to_cnn_array(img)
-            probs = clf.predict_proba(inp)[0]
-            pred = int(np.argmax(probs))
+        left, right = st.columns([1, 1.2], gap="large")
+        with left:
+            st.markdown("<div class='theory'><strong>Idea:</strong> a vision model turns pixels into feature maps and class probabilities.</div>", unsafe_allow_html=True)
+            uploaded = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg", "webp"])
+            # runtime samples generated from sklearn digits so users don't need external files
+            sample_digits: Any = load_digits()
+            # choose representative samples by digit label to ensure thumbnails match expected digits
+            preferred_digits = [2, 6, 1, 5, 3]
+            sample_indices = []
+            for d in preferred_digits:
+                idxs = np.where(sample_digits.target == d)[0]
+                if idxs.size:
+                    sample_indices.append(int(idxs[0]))
+            # fallback: fill with the first unique indices until we have 5
+            if len(sample_indices) < 5:
+                for i in range(len(sample_digits.images)):
+                    if i not in sample_indices:
+                        sample_indices.append(i)
+                    if len(sample_indices) >= 5:
+                        break
+            st.markdown("<div style='margin-top:0.6rem;color:var(--muted)'>Or pick a sample:</div>", unsafe_allow_html=True)
+            thumbs = st.columns(len(sample_indices))
+            for col, idx in zip(thumbs, sample_indices):
+                with col:
+                    sample_img = sample_digits.images[idx]
+                    # normalize to 0-255, invert so digit is dark, and improve contrast
+                    arr255 = (sample_img / (sample_img.max() if sample_img.max() > 0 else 1.0) * 255.0).astype(np.uint8)
+                    thumb = Image.fromarray(255 - arr255).convert("RGB")
+                    # keep pixel shape sharp for handwritten digits
+                    thumb = thumb.resize((88, 88), Image.Resampling.NEAREST)
+                    thumb = ImageOps.autocontrast(thumb, cutoff=1)
+                    st.image(thumb, width=88)
+                    if st.button(f"Load {idx}", key=f"sample_btn_{idx}"):
+                        st.session_state["cv_sample_idx"] = idx
+
+            controls = st.columns([1, 1, 1])
+            with controls[0]:
+                if st.button("Shuffle sample"):
+                    st.session_state["cv_sample_idx"] = int(np.random.default_rng().choice(sample_indices))
+            with controls[1]:
+                if st.button("Clear sample"):
+                    st.session_state["cv_sample_idx"] = None
+            with controls[2]:
+                current = st.session_state.get("cv_sample_idx", None)
+                label = f"Loaded: {current}" if current is not None else "Loaded: None"
+                st.markdown(f"<div style='margin-top:0.45rem;color:var(--muted)'>{label}</div>", unsafe_allow_html=True)
+
+            sample_choice = st.session_state.get("cv_sample_idx", None)
+            reset = st.button("Reset vision demo")
+            st.caption("Tip: this offline demo classifier works best with simple handwritten digits or high-contrast icons.")
+        clf, target_names, X_test, y_test = image_model()
+        is_tf_model = getattr(clf, "is_tf", False)
+
+        if uploaded is not None:
+            img = Image.open(uploaded).convert("RGB")
+            if is_tf_model:
+                inp = image_to_cnn_array(img)
+                probs = clf.predict_proba(inp)[0]
+                pred = int(np.argmax(probs))
+            else:
+                pred_vec = image_to_digit_features(img)
+                pred = clf.predict([pred_vec])[0]
+                probs = clf.predict_proba(np.asarray([pred_vec]))[0]
+        elif sample_choice is not None:
+            idx = int(sample_choice)
+            sample_img = sample_digits.images[idx]
+            img = Image.fromarray(np.uint8(255 - (sample_img / sample_img.max()) * 255)).convert("RGB")
+            if is_tf_model:
+                inp = image_to_cnn_array(img)
+                probs = clf.predict_proba(inp)[0]
+                pred = int(np.argmax(probs))
+            else:
+                pred_vec = sample_digits.data[idx]
+                pred = clf.predict([pred_vec])[0]
+                probs = clf.predict_proba(np.asarray([pred_vec]))[0]
         else:
-            pred_vec = sample_digits.data[12]
-            pred = clf.predict([pred_vec])[0]
-            probs = clf.predict_proba(np.asarray([pred_vec]))[0]
-    if reset:
-        st.session_state["cv_sample_idx"] = None
-        st.cache_data.clear()
-    c1, c2 = st.columns(2)
-    with c1:
-        show_metric("Predicted class", str(pred))
-    with c2:
-        show_metric("Confidence", f"{probs[pred] * 100:.1f}%")
-    img_col, viz_col = st.columns([1, 1.1], gap="large")
-    with img_col:
-        st.image(img, caption="Uploaded image", width="stretch")
-        gray = ImageOps.grayscale(img)
-        edges = Image.fromarray(np.uint8(np.clip(ndimage.sobel(np.asarray(gray, dtype=float)), 0, 255)))
-        a, b, c = st.columns(3)
-        with a:
-            st.image(gray, caption="Grayscale", width="stretch")
-        with b:
-            st.image(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced", width="stretch")
-        with c:
-            st.image(edges, caption="Edges", width="stretch")
-    with viz_col:
-        cv_fig = go.Figure(
-            data=[
-                go.Bar(x=[str(i) for i in range(len(probs))], y=probs, marker_color="#66f2ce"),
-            ]
-        )
-        cv_fig.update_layout(
-            title="Class probabilities",
-            height=380,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=10, r=10, t=50, b=10),
-        )
-        st.plotly_chart(cv_fig, width="stretch")
-        st.markdown("<div class='soft-panel' style='padding:1rem 1.1rem;'>Feature maps are approximated here with classic image transforms so the app remains fully usable offline.</div>", unsafe_allow_html=True)
-    # removed end-of-section expander for a cleaner layout
+            # default sample
+            sample_img = sample_digits.images[12]
+            img = Image.fromarray(np.uint8(255 - (sample_img / sample_img.max()) * 255)).convert("RGB")
+            if is_tf_model:
+                inp = image_to_cnn_array(img)
+                probs = clf.predict_proba(inp)[0]
+                pred = int(np.argmax(probs))
+            else:
+                pred_vec = sample_digits.data[12]
+                pred = clf.predict([pred_vec])[0]
+                probs = clf.predict_proba(np.asarray([pred_vec]))[0]
+        if reset:
+            st.session_state["cv_sample_idx"] = None
+            st.cache_data.clear()
+        c1, c2 = st.columns(2)
+        with c1:
+            show_metric("Predicted class", str(pred))
+        with c2:
+            show_metric("Confidence", f"{probs[pred] * 100:.1f}%")
+        img_col, viz_col = st.columns([1, 1.1], gap="large")
+        with img_col:
+            st.image(img, caption="Uploaded image", width="stretch")
+            gray = ImageOps.grayscale(img)
+            edges = Image.fromarray(np.uint8(np.clip(ndimage.sobel(np.asarray(gray, dtype=float)), 0, 255)))
+            a, b, c = st.columns(3)
+            with a:
+                st.image(gray, caption="Grayscale", width="stretch")
+            with b:
+                st.image(ImageOps.autocontrast(gray.filter(ImageFilter.EDGE_ENHANCE_MORE)), caption="Enhanced", width="stretch")
+            with c:
+                st.image(edges, caption="Edges", width="stretch")
+        with viz_col:
+            cv_fig = go.Figure(
+                data=[
+                    go.Bar(x=[str(i) for i in range(len(probs))], y=probs, marker_color="#66f2ce"),
+                ]
+            )
+            cv_fig.update_layout(
+                title="Class probabilities",
+                height=380,
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=10, r=10, t=50, b=10),
+            )
+            st.plotly_chart(cv_fig, width="stretch")
+            st.markdown("<div class='soft-panel' style='padding:1rem 1.1rem;'>Feature maps are approximated here with classic image transforms so the app remains fully usable offline.</div>", unsafe_allow_html=True)
+        # removed end-of-section expander for a cleaner layout
 
 elif choice == "Hopfield Network":
     section_header(
