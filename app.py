@@ -51,7 +51,7 @@ if not IN_STREAMLIT_RUNTIME:
     raise SystemExit(0)
 
 
-st.set_page_config(page_title="DeepLearn", layout="wide", page_icon="🧠", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="DeepLearn", layout="wide", page_icon="🧠", initial_sidebar_state="expanded")
 
 
 def apply_theme() -> None:
@@ -120,8 +120,9 @@ def apply_theme() -> None:
         [data-testid="stSidebar"] .stSlider label, [data-testid="stSidebar"] .stSelectbox label {
             color: #c9deff !important;
         }
+        /* keep the collapsed control visible so users can toggle the sidebar */
         [data-testid="collapsedControl"] {
-            display: none !important;
+            display: block !important;
         }
             /* premium primary buttons */
             button[kind="primary"] {
